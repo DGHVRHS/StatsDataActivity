@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import altair as alt
 
 st.set_page_config(page_title="Stats Regression Challenge", layout="wide")
 
@@ -106,23 +106,36 @@ st.success(f"**Least-Squares Regression Line (LSRL):**  `{eq_str}`")
 chart_col, table_col = st.columns([1.4, 1])
 
 with chart_col:
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    ax.scatter(x_vals, y_vals, color="#0f766e", s=65, zorder=3, label="Observed Data")
-    
-    x_line = np.linspace(x_vals.min(), x_vals.max(), 100)
-    y_line = intercept + slope * x_line
-    ax.plot(x_line, y_line, color="#1d4ed8", linewidth=2.2, zorder=2, label=f"LSRL: {eq_str}")
-    
-    ax.set_xlabel(f"{x_name} ({x_unit})", fontsize=11, fontweight="bold")
-    ax.set_ylabel(f"{y_name} ({y_unit})", fontsize=11, fontweight="bold")
-    ax.set_title(f"{y_name} vs. {x_name} (n = {len(clean_df)})", fontsize=12, fontweight="bold")
-    ax.grid(True, linestyle="--", alpha=0.4)
-    ax.legend()
-    st.pyplot(fig)
+    line_df = pd.DataFrame({
+        "x": [float(x_vals.min()), float(x_vals.max())],
+        "y": [intercept + slope * float(x_vals.min()), intercept + slope * float(x_vals.max())]
+    })
+
+    scatter = (
+        alt.Chart(clean_df)
+        .mark_circle(size=90, color="#0f766e")
+        .encode(
+            x=alt.X("x:Q", title=f"{x_name} ({x_unit})", scale=alt.Scale(zero=False)),
+            y=alt.Y("y:Q", title=f"{y_name} ({y_unit})", scale=alt.Scale(zero=False)),
+            tooltip=["Student Name", "x", "y", "Predicted (ŷ)", "Residual (y - ŷ)"]
+        )
+    )
+
+    reg_line = (
+        alt.Chart(line_df)
+        .mark_line(color="#1d4ed8", strokeWidth=3)
+        .encode(x="x:Q", y="y:Q")
+    )
+
+    chart = (scatter + reg_line).properties(
+        title=f"{y_name} vs. {x_name} (n = {len(clean_df)})",
+        height=350
+    )
+    st.altair_chart(chart, use_container_width=True)
 
 with table_col:
     st.subheader("Data & Residuals Table")
-    st.dataframe(clean_df, use_container_width=True, height=310)
+    st.dataframe(clean_df, use_container_width=True, height=350)
 
 # --- STEP 3: 5-QUESTION WORKSHEET CHALLENGE ---
 st.divider()
@@ -131,7 +144,6 @@ st.markdown("Use your scatterplot, correlation coefficient, and regression equat
 
 score = 0
 
-# Determine true direction and strength
 if abs(r) < 0.05:
     true_dir = "Neither (No linear direction)"
 elif r > 0:
@@ -146,7 +158,7 @@ elif abs(r) >= 0.40:
 else:
     true_str = "Weak"
 
-# QUESTION 1: Direction, Strength & Context (Worksheet Problems 1 & 2)
+# QUESTION 1: Direction, Strength & Context
 with st.container(border=True):
     st.subheader("Question 1 (20 pts): Direction, Strength & Interpreting r")
     q1_c1, q1_c2 = st.columns(2)
@@ -179,7 +191,7 @@ with st.container(border=True):
         else:
             st.error(f"❌ Not quite. Look at r = {r:.4f}: check the sign for direction and |r| = {abs(r):.4f} for strength.")
 
-# QUESTION 2: Properties of r & Unit Conversion (Worksheet Problems 5 & 7)
+# QUESTION 2: Properties of r & Unit Conversion
 with st.container(border=True):
     st.subheader("Question 2 (20 pts): Unit Conversions & Properties of Correlation")
     q2_opts = [
@@ -201,7 +213,7 @@ with st.container(border=True):
         else:
             st.error("❌ Incorrect. Remember: r has no units and does not change when variables are rescaled or shifted.")
 
-# QUESTION 3: Slope & Y-Intercept Interpretation (Worksheet Problems 8 & 12a)
+# QUESTION 3: Slope & Y-Intercept Interpretation
 with st.container(border=True):
     st.subheader("Question 3 (20 pts): Interpreting Slope & y-Intercept")
     dir_word = "increases" if slope >= 0 else "decreases"
@@ -230,7 +242,7 @@ with st.container(border=True):
         else:
             st.error("❌ Incorrect. Check which variable is x (explanatory) vs. y (response), and remember regression gives *predicted* values.")
 
-# QUESTION 4: Prediction & Largest Residual (Worksheet Problems 9, 10 & 12b)
+# QUESTION 4: Prediction & Largest Residual
 max_res_idx = int(np.argmax(np.abs(residuals)))
 target_x = float(x_vals[max_res_idx])
 target_y = float(y_vals[max_res_idx])
@@ -276,7 +288,7 @@ with st.container(border=True):
                 f"then compute Residual = {target_y:.2f} − ŷ."
             )
 
-# QUESTION 5: Extrapolation & Causation (Worksheet Problems 4 & 11)
+# QUESTION 5: Extrapolation & Causation
 extrap_x = round(float(x_vals.max() + 2 * (x_vals.max() - x_vals.min())), 1)
 
 with st.container(border=True):
